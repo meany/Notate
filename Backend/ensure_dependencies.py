@@ -5,6 +5,18 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 def find_python310():
+    # First check if we have a Python path from the environment
+    env_python_path = os.environ.get('PYTHON_PATH')
+    if env_python_path:
+        try:
+            result = subprocess.run(
+                [env_python_path, "--version"], capture_output=True, text=True)
+            if "Python 3.10" in result.stdout:
+                return env_python_path
+        except:
+            pass  # Fall back to searching other commands if env path fails
+
+    # Fall back to searching for Python commands
     python_commands = ["python3.10", "python3"] if sys.platform != "win32" else [
         "python3.10", "py -3.10", "python"]
 
@@ -29,6 +41,7 @@ def create_venv(venv_path=None):
             raise RuntimeError(
                 "Python 3.10 is required but not found. Please install Python 3.10.")
 
+        # Use the full path or command to create venv
         subprocess.check_call([python310, "-m", "venv", venv_path])
         print(f"Created virtual environment with {python310}")
     return venv_path

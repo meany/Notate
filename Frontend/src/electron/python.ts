@@ -67,6 +67,7 @@ async function ensurePythonAndVenv(backendPath: string) {
 
   let pythonCommand: string | null = null;
   let pythonVersion: string | null = null;
+  let pythonPath: string | null = null;
 
   for (const cmd of pythonCommands) {
     try {
@@ -76,7 +77,9 @@ async function ensurePythonAndVenv(backendPath: string) {
       if (version.includes("3.10")) {
         pythonCommand = cmd;
         pythonVersion = version;
-        log.info(`Found valid Python command: ${cmd} with version ${version}`);
+        // Get the full path of the Python executable
+        pythonPath = execSync(`${cmd} -c "import sys; print(sys.executable)"`).toString().trim();
+        log.info(`Found valid Python command: ${cmd} with version ${version} at path ${pythonPath}`);
         break;
       }
     } catch (error: unknown) {
@@ -187,7 +190,7 @@ async function ensurePythonAndVenv(backendPath: string) {
   // Set environment variable for the Python process
   process.env.USE_CUDA = hasNvidiaGpu ? "1" : "0";
 
-  return { venvPython, hasNvidiaGpu };
+  return { venvPython, hasNvidiaGpu, pythonPath };
 }
 
 function extractFromAsar(sourcePath: string, destPath: string) {
@@ -273,16 +276,17 @@ export async function startPythonServer() {
     let totalPackages = 0;
     let installedPackages = 0;
     ensurePythonAndVenv(backendPath)
-      .then(({ venvPython, hasNvidiaGpu }) => {
+      .then(({ venvPython, hasNvidiaGpu, pythonPath }) => {
         log.info(`Venv Python: ${venvPython}`);
+        log.info(`System Python Path: ${pythonPath}`);
         log.info(`CUDA enabled: ${hasNvidiaGpu}`);
 
-        // Define spawn options with proper typing
         const spawnOptions: SpawnOptions = {
           stdio: "pipe",
           env: {
             ...process.env,
             USE_CUDA: hasNvidiaGpu ? "1" : "0",
+            PYTHON_PATH: pythonPath || "", // Add Python path to environment
             FFMPEG_PATH: app.isPackaged
               ? path.join(
                   process.resourcesPath,
